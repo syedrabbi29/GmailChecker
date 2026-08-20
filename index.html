@@ -1,66 +1,75 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gmail Active & App Password Checker</title>
+    <title>Gmail App Password Checker</title>
     <style>
-        /* CSS স্টাইল এখানে */
-        body {
+        * {
+            box-sizing: border-box;
             font-family: Arial, sans-serif;
-            background-color: #f4f7f6;
+        }
+        body {
+            background-color: #f4f6f9;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
         }
-        .container {
-            background: white;
+        .card {
+            background: #ffffff;
             padding: 30px;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            width: 350px;
+            width: 100%;
+            max-width: 400px;
         }
         h2 {
+            margin-bottom: 20px;
             text-align: center;
             color: #333;
-            margin-bottom: 20px;
         }
-        .input-group {
+        .form-group {
             margin-bottom: 15px;
         }
         label {
             display: block;
-            margin-bottom: 5px;
-            color: #666;
+            margin-bottom: 6px;
+            color: #555;
             font-size: 14px;
         }
         input {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box;
+            border-radius: 6px;
+            font-size: 14px;
         }
         button {
             width: 100%;
             padding: 12px;
-            background: #28a745;
-            color: white;
+            background-color: #007bff;
             border: none;
-            border-radius: 5px;
+            color: white;
             font-size: 16px;
-            cursor: pointer;
             font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
         }
         button:hover {
-            background: #218838;
+            background-color: #0056b3;
         }
-        .result {
+        button:disabled {
+            background-color: #a0c3ff;
+            cursor: not-allowed;
+        }
+        #result {
             margin-top: 20px;
-            padding: 10px;
-            border-radius: 5px;
+            padding: 12px;
+            border-radius: 6px;
+            display: none;
             text-align: center;
             font-weight: bold;
         }
@@ -74,77 +83,69 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-        .hidden {
-            display: none;
-        }
     </style>
 </head>
 <body>
 
-<div class="container">
+<div class="card">
     <h2>Gmail Checker</h2>
-    <form id="checkerForm">
-        <div class="input-group">
-            <label>Gmail Address:</label>
-            <input type="email" id="email" required placeholder="example@gmail.com">
-        </div>
-        <div class="input-group">
-            <label>Password:</label>
-            <input type="password" id="password" placeholder="Account Password">
-        </div>
-        <div class="input-group">
-            <label>2FA Code:</label>
-            <input type="text" id="twoFa" placeholder="G-XXXXXX or Backup Code">
-        </div>
-        <div class="input-group">
-            <label>App Password (16 chars):</label>
-            <input type="text" id="appPassword" required placeholder="abcd efgh ijkl mnop">
-        </div>
-        <button type="submit" id="submitBtn">Check Status</button>
-    </form>
-
-    <div id="result" class="result hidden"></div>
+    <div class="form-group">
+        <label for="email">Gmail Address:</label>
+        <input type="email" id="email" placeholder="example@gmail.com">
+    </div>
+    <div class="form-group">
+        <label for="password">App Password:</label>
+        <input type="text" id="password" placeholder="xxxx xxxx xxxx xxxx">
+    </div>
+    <button id="checkBtn" onclick="checkAuth()">Check</button>
+    <div id="result"></div>
 </div>
 
 <script>
-    /* JavaScript কোড এখানে */
-    document.getElementById('checkerForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const email = document.getElementById('email').value;
-        const appPassword = document.getElementById('appPassword').value;
+    async function checkAuth() {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value.trim();
         const resultDiv = document.getElementById('result');
-        const submitBtn = document.getElementById('submitBtn');
-        
-        submitBtn.innerText = "Checking...";
-        submitBtn.disabled = true;
-        resultDiv.className = "result hidden";
+        const btn = document.getElementById('checkBtn');
+
+        if (!email || !password) {
+            resultDiv.className = 'error';
+            resultDiv.innerText = 'দয়া করে দুটি ঘরই পূরণ করুন!';
+            resultDiv.style.display = 'block';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = 'যাচাই করা হচ্ছে...';
+        resultDiv.style.display = 'none';
 
         try {
-            const response = await fetch('/api/check', {
+            const response = await fetch('/check-credentials', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email: email, app_password: appPassword })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, password: password })
             });
-            
+
             const data = await response.json();
-            
-            resultDiv.innerText = data.message;
-            if (data.status === 'success') {
-                resultDiv.className = "result success";
+            resultDiv.style.display = 'block';
+
+            if (data.success) {
+                resultDiv.className = 'success';
+                resultDiv.innerText = data.message;
             } else {
-                resultDiv.className = "result error";
+                resultDiv.className = 'error';
+                resultDiv.innerText = data.message;
             }
-        } catch (error) {
-            resultDiv.innerText = "সার্ভারের সাথে যোগাযোগ করা যাচ্ছে না।";
-            resultDiv.className = "result error";
+        } catch (err) {
+            resultDiv.className = 'error';
+            resultDiv.innerText = 'সার্ভারে সংযোগ করা সম্ভব হয়নি!';
+            resultDiv.style.display = 'block';
         } finally {
-            submitBtn.innerText = "Check Status";
-            submitBtn.disabled = false;
+            btn.disabled = false;
+            btn.innerText = 'Check';
         }
-    });
+    }
 </script>
+
 </body>
 </html>
