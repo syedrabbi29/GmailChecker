@@ -1,44 +1,39 @@
-from flask import Flask, request, jsonify, render_template
 import imaplib
-import os
+from flask import Flask, render_template, request, jsonify
 
-# Pydroid এবং অনলাইন হোস্টিং দুই জায়গাতেই পাথ ঠিক রাখার জন্য অটো-ডিটেকশন
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if "temp_iiec_codefile" in current_dir or not os.path.exists(os.path.join(current_dir, 'index.html')):
-    # যদি Pydroid এর টেম্প ফোল্ডারে রান হয়, তবে মোবাইল স্টোরেজের পাথ নেবে
-    base_path = '/storage/emulated/0/GmailChecker'
-else:
-    # গিটহাব বা সার্ভারে রান হলে কারেন্ট ফোল্ডার নেবে
-    base_path = current_dir
+app = Flask(__name__)
 
-app = Flask(__name__, 
-            template_folder=base_path, 
-            static_folder=base_path, 
-            static_url_path='')
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/api/check', methods=['POST'])
-def check_gmail():
-    data = request.get_json()
-    email = data.get('email')
-    app_password = data.get('app_password', '')
-    
-    # পাসওয়ার্ডের মাঝখানের স্পেসগুলো রিমুভ করা
+def verify_gmail(email, app_password):
+    # পাসওয়ার্ডের মাঝের স্পেসগুলো রিমুভ করা
     clean_password = app_password.replace(" ", "")
-    
     try:
-        # জিমেইলের IMAP সার্ভারে লগইন টেস্ট
+        # Gmail IMAP সার্ভারে কানেক্ট ও লগইন চেষ্টা
         mail = imaplib.IMAP4_SSL("imap.gmail.com")
         mail.login(email, clean_password)
         mail.logout()
-        return jsonify({"status": "success", "message": "✓ জিমেইলটি অ্যাক্টিভ এবং অ্যাপ পাসওয়ার্ডটি সঠিক!"})
-    except imaplib.IMAP4.error:
-        return jsonify({"status": "error", "message": "✗ ভেরিফিকেশন ব্যর্থ! জিমেইল নিষ্ক্রিয় অথবা অ্যাপ পাসওয়ার্ডটি ভুল।"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"Error: {str(e)}"})
+        return True
+    except Exception:
+        return False
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/check-credentials", methods=["POST"])
+def check_credentials():
+    data = request.get_json()
+    email = data.get("email", "").strip()
+    app_password = data.get("password", "").strip()
+
+    if not email or not app_password:
+        return jsonify({"success": False, "message": "Email এবং App Password উভয়ই প্রয়োজন!"}), 400
+
+    is_valid = verify_gmail(email, app_password)
+    
+    if is_valid:
+        return jsonify({"success": True, "message": "Success! জিমেইল এবং অ্যাপ পাসওয়ার্ড সঠিক আছে।"})
+    else:
+        return jsonify({"success": False, "message": "নায়! জিমেইল অথবা অ্যাপ পাসওয়ার্ড ভুল।"})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
